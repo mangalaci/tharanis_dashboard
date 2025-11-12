@@ -24,7 +24,7 @@ DATE_COL = "kelt" if "kelt" in df.columns else ("Adat feladás dátuma" if "Adat
 # Ország, Shop, Carrier
 COUNTRY_COL = "Célország" if "Célország" in df.columns else None
 SHOP_COL    = "shop"      if "shop" in df.columns      else None
-CARRIER_COL = "Szállító"  if "Szállító" in df.columns  else None
+CARRIER_COL = "Carrier"  if "Carrier" in df.columns  else None
 
 # Árak/költségek
 # Avg/Min/Max Price a GLS "Alap ár"-ból, ha nincs, próbáljuk 'shipping_price' oszlopból,
@@ -136,13 +136,13 @@ revenue = None
 margin = None
 
 # ---- Megjelenítés ----
-st.subheader("Display Data")
+st.subheader("Data Summary")
 
 display_df = pd.DataFrame([{
     "Shipping Count": shipping_count,
-    "Avg. Price": avg_price,
-    "Min Price": min_price,
-    "Max Price": max_price,
+    "Avg. Price (Alap ár)": avg_price,
+    "Min Price (Alap ár)": min_price,
+    "Max Price (Alap ár)": max_price,
     "Revenue": revenue,      # később kitöltjük, ha meglesz az adat
     "Margin": margin         # később kitöltjük, ha meglesz az adat
 }])
@@ -151,9 +151,9 @@ display_df = pd.DataFrame([{
 # --- Megjelenítés (index eltüntetése, verziófüggetlen) ---
 fmt = {
     "Shipping Count": "{:,.0f}",
-    "Avg. Price": "{:,.2f}",
-    "Min Price": "{:,.2f}",
-    "Max Price": "{:,.2f}",
+    "Avg. Price (Alap ár)": "{:,.2f}",
+    "Min Price (Alap ár)": "{:,.2f}",
+    "Max Price (Alap ár)": "{:,.2f}",
     "Revenue": "{:,.2f}",
     "Margin": "{:,.2f}",
 }
