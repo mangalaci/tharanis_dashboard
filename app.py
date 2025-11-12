@@ -157,12 +157,7 @@ fmt = {
     "Margin": "{:,.2f}",
 }
 
-styler = (
-    display_df
-    .style
-    .format(fmt, na_rep="—")
-    .hide(axis="index")          # <-- ez tünteti el a bal oldali 0-t
-)
+styler = display_df.reset_index(drop=True).style.format(fmt, na_rep="—").hide_index()
 
 st.table(styler)
 
