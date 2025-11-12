@@ -147,7 +147,8 @@ display_df = pd.DataFrame([{
     "Margin": margin         # később kitöltjük, ha meglesz az adat
 }])
 
-# szépen formázzuk a számokat (None → em dash)
+
+# --- Megjelenítés (index eltüntetése, verziófüggetlen) ---
 fmt = {
     "Shipping Count": "{:,.0f}",
     "Avg. Price": "{:,.2f}",
@@ -157,7 +158,7 @@ fmt = {
     "Margin": "{:,.2f}",
 }
 
-styler = display_df.reset_index(drop=True).style.format(fmt, na_rep="—").hide_index()
+df_show = display_df.copy()
+df_show.index = [''] * len(df_show)  # <- üres indexcímkék, így nem látszik a "0"
 
-st.table(styler)
-
+st.table(df_show.style.format(fmt, na_rep="—"))
