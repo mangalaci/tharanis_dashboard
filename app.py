@@ -18,17 +18,12 @@ def load_data():
 df = load_data()
 
 # ---- Oszlopok feltérképezése (rugalmasan) ----
-# Dátum (elsődlegesen 'kelt', ha nincs, akkor 'Adat feladás dátuma' vagy 'date')
 DATE_COL = "kelt" if "kelt" in df.columns else ("Adat feladás dátuma" if "Adat feladás dátuma" in df.columns else ("date" if "date" in df.columns else None))
-
-# Ország, Shop, Carrier
 COUNTRY_COL = "Célország" if "Célország" in df.columns else None
 SHOP_COL    = "shop"      if "shop" in df.columns      else None
-CARRIER_COL = "Carrier"  if "Carrier" in df.columns  else None
+CARRIER_COL = "Carrier"   if "Carrier" in df.columns   else None
 
 # Árak/költségek
-# Avg/Min/Max Price a GLS "Alap ár"-ból, ha nincs, próbáljuk 'shipping_price' oszlopból,
-# végső fallback: None
 if "Alap ár" in df.columns:
     PRICE_COL = "Alap ár"
 elif "shipping_price" in df.columns:
@@ -36,8 +31,7 @@ elif "shipping_price" in df.columns:
 else:
     PRICE_COL = None
 
-# Összes szállítási költség: ha van előkészített 'szall_kltsg', azt használjuk,
-# különben megpróbáljuk a GLS díjtételek összegét kiszámolni.
+# Szállítási költségek
 COST_COL = None
 if "szall_kltsg" in df.columns:
     COST_COL = "szall_kltsg"
@@ -50,57 +44,48 @@ else:
         df["_calc_shipping_cost"] = df[fee_cols].sum(axis=1)
         COST_COL = "_calc_shipping_cost"
 
-# ---- Szűrők (Countries, Shop, Carrier, Date Range) ----
+# ---- Szűrők ----
 filter_cols = st.container()
 with filter_cols:
     c1, c2, c3 = st.columns(3)
-    # Countries
     if COUNTRY_COL:
         countries = ["(all)"] + sorted(df[COUNTRY_COL].dropna().astype(str).unique().tolist())
         country_sel = c1.selectbox("County", countries)
     else:
         country_sel = c1.selectbox("Countries", ["(all)"])
 
-    # Shop
     if SHOP_COL:
         shops = ["(all)"] + sorted(df[SHOP_COL].dropna().astype(str).unique().tolist())
         shop_sel = c2.selectbox("Shop", shops)
     else:
         shop_sel = c2.selectbox("Shop", ["(all)"])
 
-    # Carrier
     if CARRIER_COL:
         carriers = ["(all)"] + sorted(df[CARRIER_COL].dropna().astype(str).unique().tolist())
         carrier_sel = c3.selectbox("Carrier", carriers)
     else:
         carrier_sel = c3.selectbox("Carrier", ["(all)"])
 
-    # Date Range
     if DATE_COL:
         min_d = pd.to_datetime(df[DATE_COL], errors="coerce").min()
         max_d = pd.to_datetime(df[DATE_COL], errors="coerce").max()
-        # alap: teljes idősáv
         start_d, end_d = st.date_input(
             "Date Range",
             value=(min_d.date() if pd.notnull(min_d) else date.today(),
                    max_d.date() if pd.notnull(max_d) else date.today())
         )
     else:
-        st.info("Nincs dátum oszlop a fájlban (pl. 'kelt' vagy 'Adat feladás dátuma'). A szűrés dátum nélkül történik.")
+        st.info("Nincs dátum oszlop a fájlban (pl. 'kelt' vagy 'Adat feladás dátuma').")
         start_d = end_d = None
 
 # ---- Szűrés alkalmazása ----
 mask = pd.Series(True, index=df.index)
-
 if COUNTRY_COL and country_sel != "(all)":
     mask &= df[COUNTRY_COL].astype(str) == str(country_sel)
-
 if SHOP_COL and shop_sel != "(all)":
     mask &= df[SHOP_COL].astype(str) == str(shop_sel)
-
 if CARRIER_COL and carrier_sel != "(all)":
     mask &= df[CARRIER_COL].astype(str) == str(carrier_sel)
-
 if DATE_COL and start_d and end_d:
     mask &= (df[DATE_COL] >= pd.Timestamp(start_d)) & (df[DATE_COL] <= pd.Timestamp(end_d))
 
@@ -131,8 +116,14 @@ if COST_COL and COST_COL in f.columns:
     if s is not None:
         total_cost = s.sum()
 
-# Revenue és Margin most még nincs – helyet hagyunk nekik
+# --- Revenue: a netto oszlop összege ---
 revenue = None
+if "netto" in f.columns:
+    revenue_series = safe_num(f["netto"])
+    if revenue_series is not None:
+        revenue = revenue_series.sum()
+
+# --- Margin egyelőre None ---
 margin = None
 
 # ---- Megjelenítés ----
@@ -143,22 +134,20 @@ display_df = pd.DataFrame([{
     "Avg. Price (Alap ár)": avg_price,
     "Min Price (Alap ár)": min_price,
     "Max Price (Alap ár)": max_price,
-    "Revenue": revenue,      # később kitöltjük, ha meglesz az adat
-    "Margin": margin         # később kitöltjük, ha meglesz az adat
+    "Revenue": revenue,
+    "Margin": margin
 }])
 
-
-# --- Megjelenítés (index eltüntetése, verziófüggetlen) ---
+# --- Formázás ---
 fmt = {
     "Shipping Count": "{:,.0f}",
     "Avg. Price (Alap ár)": "{:,.2f}",
     "Min Price (Alap ár)": "{:,.2f}",
     "Max Price (Alap ár)": "{:,.2f}",
-    "Revenue": "{:,.2f}",
+    "Revenue": "{:,.0f}",
     "Margin": "{:,.2f}",
 }
 
 df_show = display_df.copy()
-df_show.index = [''] * len(df_show)  # <- üres indexcímkék, így nem látszik a "0"
-
+df_show.index = [''] * len(df_show)
 st.table(df_show.style.format(fmt, na_rep="—"))
