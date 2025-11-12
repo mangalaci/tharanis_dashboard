@@ -57,7 +57,7 @@ with filter_cols:
     # Countries
     if COUNTRY_COL:
         countries = ["(all)"] + sorted(df[COUNTRY_COL].dropna().astype(str).unique().tolist())
-        country_sel = c1.selectbox("Countries", countries)
+        country_sel = c1.selectbox("County", countries)
     else:
         country_sel = c1.selectbox("Countries", ["(all)"])
 
@@ -156,4 +156,13 @@ fmt = {
     "Revenue": "{:,.2f}",
     "Margin": "{:,.2f}",
 }
-st.table(display_df.style.format(fmt, na_rep="—"))
+
+styler = (
+    display_df
+    .style
+    .format(fmt, na_rep="—")
+    .hide(axis="index")          # <-- ez tünteti el a bal oldali 0-t
+)
+
+st.table(styler)
+
