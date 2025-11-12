@@ -50,9 +50,9 @@ with filter_cols:
     c1, c2, c3 = st.columns(3)
     if COUNTRY_COL:
         countries = ["(all)"] + sorted(df[COUNTRY_COL].dropna().astype(str).unique().tolist())
-        country_sel = c1.selectbox("County", countries)
+        country_sel = c1.selectbox("Country", countries)
     else:
-        country_sel = c1.selectbox("Countries", ["(all)"])
+        country_sel = c1.selectbox("Country", ["(all)"])
 
     if SHOP_COL:
         shops = ["(all)"] + sorted(df[SHOP_COL].dropna().astype(str).unique().tolist())
@@ -123,8 +123,12 @@ if "netto" in f.columns:
     if revenue_series is not None:
         revenue = revenue_series.sum()
 
-# --- Margin egyelőre None ---
+# --- Margin: nyereseg_nyilv_ar oszlop összege ---
 margin = None
+if "nyereseg_nyilv_ar" in f.columns:
+    margin_series = safe_num(f["nyereseg_nyilv_ar"])
+    if margin_series is not None:
+        margin = margin_series.sum()
 
 # ---- Megjelenítés ----
 st.subheader("Data Summary")
