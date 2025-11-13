@@ -178,11 +178,13 @@ df_show.index = [''] * len(df_show)
 st.table(df_show.style.format(fmt, na_rep="—"))
 
 # --- Export gomb: Data Summary -> Excel ---
-import io
+from io import BytesIO
 
-excel_buffer = io.BytesIO()
-with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-    display_df.to_excel(writer, index=False, sheet_name="DataSummary")
+# ...
+excel_buffer = BytesIO()
+# NINCS xlsxwriter, inkább openpyxl-t kérünk, ami már telepítve van
+with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+    display_df.to_excel(writer, index=False, sheet_name="Summary")
 
 excel_buffer.seek(0)
 
@@ -192,4 +194,3 @@ st.download_button(
     file_name="data_summary.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 )
-
