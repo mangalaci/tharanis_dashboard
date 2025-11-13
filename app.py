@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import date
 
 st.set_page_config(page_title="General Data Reporting", layout="wide")
-st.title("General Data Reporting")
+st.title("Általános adatszolgáltatás")
 
 @st.cache_data
 def load_data():
