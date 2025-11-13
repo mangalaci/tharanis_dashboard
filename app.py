@@ -1,6 +1,44 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import date
+from io import BytesIO
+
+
+def build_listas_riport(df):
+    r = df.copy()
+
+    # Nettó és szállítási költség biztosan legyen szám
+    netto_num = pd.to_numeric(r["netto"], errors="coerce")
+    szall_num = pd.to_numeric(r["szall_kltsg"], errors="coerce")
+
+    # Eredmény = Nettó számla érték - Szállítási díj
+    r["Eredmény"] = netto_num - szall_num
+
+    # % = Eredmény / Nettó
+    r["%"] = np.where(
+        netto_num.notna() & (netto_num != 0),
+        r["Eredmény"] / netto_num * 100,
+        np.nan
+    )
+
+    riport = pd.DataFrame({
+        "Számlasorszám":      r.get("sorszam"),
+        "SHOP":               r.get("shop"),
+        "NÉV":                r.get("szla_nev"),   # ha szállítási név kell: r.get("szall_nev")
+        "Szállítási mód":     r.get("Carrier"),
+        "Nettó számla érték": netto_num,
+        "Szállítási díj":     szall_num,
+        "%":                  r["%"],
+        "Eredmény":           r["Eredmény"],
+    })
+
+    # opcionális rendezés
+    if "Számlasorszám" in riport.columns:
+        riport = riport.sort_values("Számlasorszám")
+
+    return riport
+
 
 st.set_page_config(page_title="General Data Reporting", layout="wide")
 st.title("Általános adatszolgáltatás")
@@ -108,89 +146,93 @@ if DATE_COL and from_d and to_d:
 
 f = df[mask].copy()
 
-# ---- Mutatók számítása ----
-shipping_count = len(f)
+# ---- TAB-ok: Summary + Listás riport ----
+tab_summary, tab_list = st.tabs(["Data Summary", "Listás riport"])
 
-def safe_num(series):
-    if series is None:
+with tab_summary:
+    st.subheader("Data Summary")
+
+    shipping_count = len(f)
+
+    def safe_num(series):
+        if series is None:
+            return None
+        series = pd.to_numeric(series, errors="coerce")
+        if series.notna().any():
+            return series
         return None
-    series = pd.to_numeric(series, errors="coerce")
-    if series.notna().any():
-        return series
-    return None
 
-# Price mutatók
-avg_price = min_price = max_price = None
-if PRICE_COL and PRICE_COL in f.columns:
-    s = safe_num(f[PRICE_COL])
-    if s is not None:
-        avg_price = s.mean()
-        min_price = s.min()
-        max_price = s.max()
+    # Price mutatók
+    avg_price = min_price = max_price = None
+    if PRICE_COL and PRICE_COL in f.columns:
+        s = safe_num(f[PRICE_COL])
+        if s is not None:
+            avg_price = s.mean()
+            min_price = s.min()
+            max_price = s.max()
 
-# Összköltség (ha kellene később)
-total_cost = None
-if COST_COL and COST_COL in f.columns:
-    s = safe_num(f[COST_COL])
-    if s is not None:
-        total_cost = s.sum()
+    # Összköltség (ha kellene később)
+    total_cost = None
+    if COST_COL and COST_COL in f.columns:
+        s = safe_num(f[COST_COL])
+        if s is not None:
+            total_cost = s.sum()
 
-# --- Revenue: netto vagy net_sales összege ---
-revenue = None
-REV_COL = pick_col(["netto", "net_sales"])
-if REV_COL and REV_COL in f.columns:
-    revenue_series = safe_num(f[REV_COL])
-    if revenue_series is not None:
-        revenue = revenue_series.sum()
+    # --- Revenue: netto vagy net_sales összege ---
+    revenue = None
+    REV_COL = pick_col(["netto", "net_sales"])
+    if REV_COL and REV_COL in f.columns:
+        revenue_series = safe_num(f[REV_COL])
+        if revenue_series is not None:
+            revenue = revenue_series.sum()
 
-# --- Margin: nyereseg_nyilv_ar vagy margin oszlopok összege ---
-margin = None
-MARG_COL = pick_col(["nyereseg_nyilv_ar", "margin_amount", "margin"])
-if MARG_COL and MARG_COL in f.columns:
-    margin_series = safe_num(f[MARG_COL])
-    if margin_series is not None:
-        margin = margin_series.sum()
+    # --- Margin: nyereseg_nyilv_ar vagy margin oszlopok összege ---
+    margin = None
+    MARG_COL = pick_col(["nyereseg_nyilv_ar", "margin_amount", "margin"])
+    if MARG_COL and MARG_COL in f.columns:
+        margin_series = safe_num(f[MARG_COL])
+        if margin_series is not None:
+            margin = margin_series.sum()
 
-# ---- Megjelenítés ----
-st.subheader("Data Summary")
+    # ---- Megjelenítés ----
+    display_df = pd.DataFrame([{
+        "Shipping Count": shipping_count,
+        "Avg. Price (Alap ár)": avg_price,
+        "Min Price (Alap ár)": min_price,
+        "Max Price (Alap ár)": max_price,
+        "Revenue": revenue,
+        "Margin": margin
+    }])
 
-display_df = pd.DataFrame([{
-    "Shipping Count": shipping_count,
-    "Avg. Price (Alap ár)": avg_price,
-    "Min Price (Alap ár)": min_price,
-    "Max Price (Alap ár)": max_price,
-    "Revenue": revenue,
-    "Margin": margin
-}])
+    # --- Formázás ---
+    fmt = {
+        "Shipping Count": "{:,.0f}",
+        "Avg. Price (Alap ár)": "{:,.2f}",
+        "Min Price (Alap ár)": "{:,.2f}",
+        "Max Price (Alap ár)": "{:,.2f}",
+        "Revenue": "{:,.0f}",
+        "Margin": "{:,.2f}",
+    }
 
-# --- Formázás ---
-fmt = {
-    "Shipping Count": "{:,.0f}",
-    "Avg. Price (Alap ár)": "{:,.2f}",
-    "Min Price (Alap ár)": "{:,.2f}",
-    "Max Price (Alap ár)": "{:,.2f}",
-    "Revenue": "{:,.0f}",
-    "Margin": "{:,.2f}",
-}
+    df_show = display_df.copy()
+    df_show.index = [''] * len(df_show)
+    st.table(df_show.style.format(fmt, na_rep="—"))
 
-df_show = display_df.copy()
-df_show.index = [''] * len(df_show)
-st.table(df_show.style.format(fmt, na_rep="—"))
+    # --- Export gomb: Data Summary -> Excel ---
+    excel_buffer = BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+        f.to_excel(writer, index=False, sheet_name="Data")
 
-# --- Export gomb: Data Summary -> Excel ---
-from io import BytesIO
+    excel_buffer.seek(0)
 
-# ...
-excel_buffer = BytesIO()
-# NINCS xlsxwriter, inkább openpyxl-t kérünk, ami már telepítve van
-with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-    f.to_excel(writer, index=False, sheet_name="Data")
+    st.download_button(
+        label="Export Data Summary to Excel",
+        data=excel_buffer,
+        file_name="data_summary.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
-excel_buffer.seek(0)
-
-st.download_button(
-    label="Export Data Summary to Excel",
-    data=excel_buffer,
-    file_name="data_summary.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
+with tab_list:
+    st.subheader("Listás riport")
+    df_list = build_listas_riport(f)
+    st.dataframe(df_list)
