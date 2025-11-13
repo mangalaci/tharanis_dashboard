@@ -183,8 +183,8 @@ from io import BytesIO
 # ...
 excel_buffer = BytesIO()
 # NINCS xlsxwriter, inkább openpyxl-t kérünk, ami már telepítve van
-with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-    display_df.to_excel(writer, index=False, sheet_name="Summary")
+with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+    f.to_excel(writer, index=False, sheet_name="Data")
 
 excel_buffer.seek(0)
 
