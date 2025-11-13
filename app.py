@@ -77,14 +77,23 @@ with filter_cols:
     if DATE_COL:
         min_d = pd.to_datetime(df[DATE_COL], errors="coerce").min()
         max_d = pd.to_datetime(df[DATE_COL], errors="coerce").max()
-        start_d, end_d = st.date_input(
-            "Date Range",
-            value=(min_d.date() if pd.notnull(min_d) else date.today(),
-                   max_d.date() if pd.notnull(max_d) else date.today())
-        )
+
+        col_from, col_to = st.columns(2)
+
+        # alapértelmezett értékek
+        default_from = min_d.date() if pd.notnull(min_d) else date.today()
+        default_to   = max_d.date() if pd.notnull(max_d) else date.today()
+
+        from_d = col_from.date_input("From", value=default_from)
+        to_d   = col_to.date_input("To",   value=default_to)
+
+        # ha véletlenül fordítva választja ki (From > To), akkor cseréljük
+        if from_d > to_d:
+            from_d, to_d = to_d, from_d
     else:
-        st.info("Nincs dátum oszlop a fájlban (pl. 'kelt' vagy 'date_sent').")
-        start_d = end_d = None
+        st.info("Nincs dátum oszlop a fájlban (pl. 'kelt' vagy 'Adat feladás dátuma').")
+        from_d = to_d = None
+
 
 # ---- Szűrés alkalmazása ----
 mask = pd.Series(True, index=df.index)
@@ -94,8 +103,8 @@ if SHOP_COL and shop_sel != "(all)":
     mask &= df[SHOP_COL].astype(str) == str(shop_sel)
 if CARRIER_COL and carrier_sel != "(all)":
     mask &= df[CARRIER_COL].astype(str) == str(carrier_sel)
-if DATE_COL and start_d and end_d:
-    mask &= (df[DATE_COL] >= pd.Timestamp(start_d)) & (df[DATE_COL] <= pd.Timestamp(end_d))
+if DATE_COL and from_d and to_d:
+    mask &= (df[DATE_COL] >= pd.Timestamp(from_d)) & (df[DATE_COL] <= pd.Timestamp(to_d))
 
 f = df[mask].copy()
 
