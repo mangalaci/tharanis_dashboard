@@ -7,38 +7,41 @@ st.title("General Data Reporting")
 
 @st.cache_data
 def load_data():
-    # A projekt által előállított merged.csv-t olvassuk
     df = pd.read_csv("merged.csv")
     # dátumoszlopok normalizálása
-    for dcol in ["kelt", "Adat feladás dátuma", "date"]:
+    for dcol in ["kelt", "Adat feladás dátuma", "date", "date_sent"]:
         if dcol in df.columns:
             df[dcol] = pd.to_datetime(df[dcol], errors="coerce")
     return df
 
 df = load_data()
 
+# ---- Oszlopnév-választó segédfüggvény ----
+def pick_col(candidates):
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
 # ---- Oszlopok feltérképezése (rugalmasan) ----
-DATE_COL = "kelt" if "kelt" in df.columns else ("Adat feladás dátuma" if "Adat feladás dátuma" in df.columns else ("date" if "date" in df.columns else None))
-COUNTRY_COL = "Célország" if "Célország" in df.columns else None
-SHOP_COL    = "shop"      if "shop" in df.columns      else None
-CARRIER_COL = "Carrier"   if "Carrier" in df.columns   else None
+DATE_COL    = pick_col(["kelt", "date", "date_sent", "Adat feladás dátuma"])
+COUNTRY_COL = pick_col(["Célország", "country"])
+SHOP_COL    = pick_col(["shop", "Shop"])
+CARRIER_COL = pick_col(["Carrier", "carrier"])
 
-# Árak/költségek
-if "Alap ár" in df.columns:
-    PRICE_COL = "Alap ár"
-elif "shipping_price" in df.columns:
-    PRICE_COL = "shipping_price"
-else:
-    PRICE_COL = None
+# Árak / költségek oszlop neve
+PRICE_COL = pick_col(["Alap ár", "base_fee", "shipping_price"])
 
-# Szállítási költségek
+# Szállítási költség
 COST_COL = None
 if "szall_kltsg" in df.columns:
     COST_COL = "szall_kltsg"
 else:
     fee_cols = [c for c in [
         "Alap ár","Utánvét","Biztosítás","Üzemanyag felár","Útdíj",
-        "Kártyás fizetés","Depon kívüli fel.","Viszáru felár","Egyéb"
+        "Kártyás fizetés","Depon kívüli fel.","Viszáru felár","Egyéb",
+        "base_fee","cod_fee","insurance","fuel_surcharge","road_toll",
+        "card_fee","depot_out","return_fee","other_fee","shipping_cost"
     ] if c in df.columns]
     if fee_cols:
         df["_calc_shipping_cost"] = df[fee_cols].sum(axis=1)
@@ -48,24 +51,29 @@ else:
 filter_cols = st.container()
 with filter_cols:
     c1, c2, c3 = st.columns(3)
+
+    # Country
     if COUNTRY_COL:
         countries = ["(all)"] + sorted(df[COUNTRY_COL].dropna().astype(str).unique().tolist())
         country_sel = c1.selectbox("Country", countries)
     else:
         country_sel = c1.selectbox("Country", ["(all)"])
 
+    # Shop
     if SHOP_COL:
         shops = ["(all)"] + sorted(df[SHOP_COL].dropna().astype(str).unique().tolist())
         shop_sel = c2.selectbox("Shop", shops)
     else:
         shop_sel = c2.selectbox("Shop", ["(all)"])
 
+    # Carrier
     if CARRIER_COL:
         carriers = ["(all)"] + sorted(df[CARRIER_COL].dropna().astype(str).unique().tolist())
         carrier_sel = c3.selectbox("Carrier", carriers)
     else:
         carrier_sel = c3.selectbox("Carrier", ["(all)"])
 
+    # Dátum intervallum
     if DATE_COL:
         min_d = pd.to_datetime(df[DATE_COL], errors="coerce").min()
         max_d = pd.to_datetime(df[DATE_COL], errors="coerce").max()
@@ -75,7 +83,7 @@ with filter_cols:
                    max_d.date() if pd.notnull(max_d) else date.today())
         )
     else:
-        st.info("Nincs dátum oszlop a fájlban (pl. 'kelt' vagy 'Adat feladás dátuma').")
+        st.info("Nincs dátum oszlop a fájlban (pl. 'kelt' vagy 'date_sent').")
         start_d = end_d = None
 
 # ---- Szűrés alkalmazása ----
@@ -102,6 +110,7 @@ def safe_num(series):
         return series
     return None
 
+# Price mutatók
 avg_price = min_price = max_price = None
 if PRICE_COL and PRICE_COL in f.columns:
     s = safe_num(f[PRICE_COL])
@@ -110,23 +119,26 @@ if PRICE_COL and PRICE_COL in f.columns:
         min_price = s.min()
         max_price = s.max()
 
+# Összköltség (ha kellene később)
 total_cost = None
 if COST_COL and COST_COL in f.columns:
     s = safe_num(f[COST_COL])
     if s is not None:
         total_cost = s.sum()
 
-# --- Revenue: a netto oszlop összege ---
+# --- Revenue: netto vagy net_sales összege ---
 revenue = None
-if "netto" in f.columns:
-    revenue_series = safe_num(f["netto"])
+REV_COL = pick_col(["netto", "net_sales"])
+if REV_COL and REV_COL in f.columns:
+    revenue_series = safe_num(f[REV_COL])
     if revenue_series is not None:
         revenue = revenue_series.sum()
 
-# --- Margin: nyereseg_nyilv_ar oszlop összege ---
+# --- Margin: nyereseg_nyilv_ar vagy margin oszlopok összege ---
 margin = None
-if "nyereseg_nyilv_ar" in f.columns:
-    margin_series = safe_num(f["nyereseg_nyilv_ar"])
+MARG_COL = pick_col(["nyereseg_nyilv_ar", "margin_amount", "margin"])
+if MARG_COL and MARG_COL in f.columns:
+    margin_series = safe_num(f[MARG_COL])
     if margin_series is not None:
         margin = margin_series.sum()
 
