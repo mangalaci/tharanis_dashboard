@@ -167,3 +167,20 @@ fmt = {
 df_show = display_df.copy()
 df_show.index = [''] * len(df_show)
 st.table(df_show.style.format(fmt, na_rep="—"))
+
+# --- Export gomb: Data Summary -> Excel ---
+import io
+
+excel_buffer = io.BytesIO()
+with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+    display_df.to_excel(writer, index=False, sheet_name="DataSummary")
+
+excel_buffer.seek(0)
+
+st.download_button(
+    label="Export Data Summary to Excel",
+    data=excel_buffer,
+    file_name="data_summary.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
+
