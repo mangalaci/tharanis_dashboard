@@ -234,5 +234,20 @@ with tab_summary:
 
 with tab_list:
     st.subheader("Listás riport")
+
     df_list = build_listas_riport(f)
-    st.dataframe(df_list)
+    st.dataframe(df_list, use_container_width=True)
+
+    # --- Export gomb: Listás riport -> Excel ---
+    excel_buffer_list = BytesIO()
+    with pd.ExcelWriter(excel_buffer_list, engine="xlsxwriter") as writer:
+        df_list.to_excel(writer, index=False, sheet_name="ListasRiport")
+
+    excel_buffer_list.seek(0)
+
+    st.download_button(
+        label="Export Listás riport to Excel",
+        data=excel_buffer_list,
+        file_name="listas_riport.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
