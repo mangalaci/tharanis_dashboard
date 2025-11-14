@@ -50,6 +50,42 @@ def load_data():
     for dcol in ["kelt", "Adat feladás dátuma", "date", "date_sent"]:
         if dcol in df.columns:
             df[dcol] = pd.to_datetime(df[dcol], errors="coerce")
+
+    # ------------- ÚJ RÉSZ: GLS szállítási költség újraszámolása -------------
+    # Carrier oszlop felderítése
+    carrier_col = None
+    for c in ["Carrier", "carrier"]:
+        if c in df.columns:
+            carrier_col = c
+            break
+
+    if carrier_col is not None:
+        # GLS sorok maszkolása
+        gls_mask = df[carrier_col].astype(str).str.contains("GLS", case=False, na=False)
+
+        # A GLS exportból jövő lehetséges oszlopnevek – ha nincs mind, ami van, azt használjuk
+        gls_fee_cols = [c for c in [
+            "Fuvardíj / Transport fee",
+            "Üzemanyag felár / Diesel fee",
+            "Útdíj / Toll fee",
+            "Szolgáltatások díja / Total service fees",
+            # opcionális rövidebb változatok, ha esetleg így hívják
+            "Fuvardíj", "Transport fee",
+            "Üzemanyag felár", "Diesel fee",
+            "Útdíj", "Toll fee",
+            "Szolgáltatások díja", "Total service fees"
+        ] if c in df.columns]
+
+        if gls_fee_cols:
+            # biztosan számokká alakítjuk
+            df[gls_fee_cols] = df[gls_fee_cols].apply(
+                pd.to_numeric, errors="coerce"
+            )
+
+            # csak a GLS soroknál számoljuk ki a teljes szállítási költséget
+            df.loc[gls_mask, "szall_kltsg"] = df.loc[gls_mask, gls_fee_cols].sum(axis=1)
+
+    # -------------------------------------------------------------------------
     return df
 
 df = load_data()
